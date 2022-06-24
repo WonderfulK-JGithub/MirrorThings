@@ -497,9 +497,6 @@ public class CreateManager : MonoBehaviour
                 CurrentQuestion.image = _newImage;
 
                 LoadImage();
-
-                
-
             }
         }
 

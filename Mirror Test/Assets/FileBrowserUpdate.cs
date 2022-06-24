@@ -28,8 +28,8 @@ public class FileBrowserUpdate : MonoBehaviour
         using (UnityWebRequest uwr = UnityWebRequestTexture.GetTexture(path))
         {
             yield return uwr.SendWebRequest();
-
-            if (uwr.isNetworkError || uwr.isHttpError)
+            int i = 0;
+            if (i == 1)
             {
                 Debug.Log(uwr.error);
             }

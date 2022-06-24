@@ -51,9 +51,8 @@ public class QuizManager : NetworkBehaviour
     [SerializeField] GameObject answeringPanel;
     [SerializeField] GameObject skipButton;
     [SerializeField] TextMeshProUGUI skipButtonText;
-    [SerializeField] Slider answeringBar;
     [SerializeField] TextMeshProUGUI[] alternetives;
-    [SerializeField] GameObject[] alternetiveButtons;
+    [SerializeField] Button[] alternetiveButtons;
     [SerializeField] Image[] alternetiveImages;
     [SerializeField] Color[] alternetiveColors;
     [SerializeField] Image answerBorder;
@@ -61,6 +60,8 @@ public class QuizManager : NetworkBehaviour
     [SerializeField] RawImage questionImage;
     [SerializeField] int maxImageWidth;
     [SerializeField] int maxImageHeight;
+    [SerializeField] Image timerImage;
+    [SerializeField] TextMeshProUGUI timerText;
 
     [Header("--ScoreShowcase--")]
     [SerializeField] GameObject scoreShowcasePanel;
@@ -147,7 +148,8 @@ public class QuizManager : NetworkBehaviour
             case QuizState.Answering:
                 timer -= Time.deltaTime;
 
-                answeringBar.value = timer / ogQuestionTime;
+                timerText.text = Mathf.Round(timer).ToString();
+                timerImage.fillAmount = timer / ogQuestionTime;
 
                 if(timer <= 0f)
                 {
@@ -187,7 +189,8 @@ public class QuizManager : NetworkBehaviour
             case QuizState.Answering:
                 timer -= Time.deltaTime;
 
-                answeringBar.value = timer / ogQuestionTime;
+                timerText.text = Mathf.Round(timer).ToString();
+                timerImage.fillAmount = timer / ogQuestionTime;
                 break;
         }
     }
@@ -279,6 +282,8 @@ public class QuizManager : NetworkBehaviour
     [Server]
     public void ServerStartAnswering()
     {
+        answerBorder.transform.localPosition = new Vector3(0f, 10000f, 0f);
+
         state = QuizState.Answering;
 
         timer = quiz.questions[currentQuestion].time;
@@ -339,13 +344,14 @@ public class QuizManager : NetworkBehaviour
         questionPanel.SetActive(false);
         answeringPanel.SetActive(true);
 
-        answeringBar.gameObject.SetActive(true);
+        timerImage.transform.parent.gameObject.SetActive(true);
 
         for (int i = 0; i < alternetiveButtons.Length; i++)
         {
             if(i < _alternetives.Length)
             {
-                alternetiveButtons[i].SetActive(true);
+                alternetiveButtons[i].gameObject.SetActive(true);
+                alternetiveButtons[i].interactable = true;
 
                 alternetives[i].text = _alternetives[i];
 
@@ -353,7 +359,7 @@ public class QuizManager : NetworkBehaviour
             }
             else
             {
-                alternetiveButtons[i].SetActive(false);
+                alternetiveButtons[i].gameObject.SetActive(false);
             }
         }
     }
@@ -374,7 +380,7 @@ public class QuizManager : NetworkBehaviour
     {
         for (int i = 0; i < alternetiveButtons.Length; i++)
         {
-            alternetiveButtons[i].SetActive(false);
+            alternetiveButtons[i].gameObject.SetActive(false);
             answerBorder.transform.localPosition = alternetiveButtons[QuizNetworkManager.myPlayer.currentChoice].transform.localPosition;
         }
     }
@@ -418,15 +424,16 @@ public class QuizManager : NetworkBehaviour
     {
         for (int i = 0; i < _corrections.Length; i++)
         {
-            alternetiveButtons[i].SetActive(true);
+            alternetiveButtons[i].gameObject.SetActive(true);
             alternetiveImages[i].color = _corrections[i] ? Color.green : Color.red;
+            alternetiveButtons[i].interactable = false;
         }
 
         skipButtonText.text = "Continue";
 
         answerBorder.gameObject.SetActive(true);
 
-        answeringBar.gameObject.SetActive(false);
+        timerImage.transform.parent.gameObject.SetActive(false);
 
         state = QuizState.Reveal;
     }
