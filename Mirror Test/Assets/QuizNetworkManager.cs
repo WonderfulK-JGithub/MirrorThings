@@ -4,17 +4,24 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 using Mirror;
+using kcp2k;
 public class QuizNetworkManager : NetworkManager
 {
     public static PlayerQuizData myPlayer;
 
     public static QuizNetworkManager current;
 
+    public static NetworkConnection firstConn;
+
+    public static Action OnClientDisconnected;
+
     [SerializeField] GameObject playerDataPrefab;
 
     [HideInInspector] public bool allowJoining = true;
 
     [HideInInspector] public List<PlayerQuizData> playerList = new List<PlayerQuizData>();
+
+    [TextArea(1, 3)] public string[] popupMessages;
 
     
 
@@ -24,6 +31,7 @@ public class QuizNetworkManager : NetworkManager
 
         base.Awake();
     }
+
     public override void OnStartServer()//Server loads objects
     {
         spawnPrefabs = Resources.LoadAll<GameObject>("Prefabs").ToList();
@@ -44,13 +52,17 @@ public class QuizNetworkManager : NetworkManager
         base.OnClientConnect();
     }
 
+    
 
     public override void OnServerConnect(NetworkConnection conn)
     {
         if (!allowJoining)
         {
             conn.Disconnect();
+            return;
         }
+
+        if (firstConn == null) firstConn = conn;
     }
 
     public override void OnServerAddPlayer(NetworkConnection conn)
@@ -60,8 +72,10 @@ public class QuizNetworkManager : NetworkManager
         player.name = $"{playerPrefab.name} [connId={conn.connectionId}]";
         NetworkServer.AddPlayerForConnection(conn, player);
 
-        if (playerList.Count == 0) player.GetComponent<PlayerQuizData>().isLeader = true;
 
+
+        //if (playerList.Count == 0) player.GetComponent<PlayerQuizData>().isLeader = true;
+        
         playerList.Add(player.GetComponent<PlayerQuizData>());
     }
 
@@ -77,7 +91,6 @@ public class QuizNetworkManager : NetworkManager
         base.OnServerDisconnect(conn);
     }
 
-
     public static int SortPlayersByScore(PlayerQuizData a, PlayerQuizData b)
     {
         if (a.score > b.score)
@@ -90,5 +103,12 @@ public class QuizNetworkManager : NetworkManager
         }
 
         return 0;
+    }
+
+    public override void OnClientDisconnect()
+    {
+        base.OnClientDisconnect();
+
+        OnClientDisconnected?.Invoke();
     }
 }

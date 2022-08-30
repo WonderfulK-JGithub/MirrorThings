@@ -39,7 +39,6 @@ public class BackGroundCircle : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
         float _dif = Mathf.Abs(t - 0.5f);
 
         float _a = (1 - slowDown) / 0.25f;

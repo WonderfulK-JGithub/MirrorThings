@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using Mirror;
@@ -14,33 +15,49 @@ public class PlayerQuizData : NetworkBehaviour
     public bool isLeader;
 
     public int currentChoice;
+    public string currentChoiceWrite;
 
     public float answerTime;
     public int streak;
 
     public override void OnStartAuthority()
     {
-        CmdSetName(QuizMainMenu.DisplayName,QuizMainMenu.UsedQuiz);
+        CmdSetName(QuizMainMenu.DisplayName);
 
         QuizNetworkManager.myPlayer = this;
         
     }
     [Command]
-    public void CmdSetName(string _name,Quiz _quiz)
+    public void CmdSetName(string _name)
     {
-        if(isLeader) QuizManager.quiz = _quiz;
+        //print(connectionToClient.connectionId == QuizNetworkManager.firstConn.connectionId);
+
+        isLeader = connectionToClient.connectionId == QuizNetworkManager.firstConn.connectionId;
+
+        if (isLeader)
+        {
+            QuizManager.quiz = QuizMainMenu.UsedQuiz;
+            QuizManager.mode = QuizMainMenu.UsedMode;
+
+            if (QuizManager.mode != PlayMode.Default)
+            {
+                
+                QuizNetworkManager.current.playerList.Remove(this);
+                return;
+            }
+        }
 
         playerName = _name;
-        RpcSetName(_name);
+        RpcSetName(_name, QuizManager.mode);
 
         QuizManager.current.SetNames();
     }
 
     [ClientRpc]
-    public void RpcSetName(string _name)
+    public void RpcSetName(string _name,PlayMode _mode)
     {
         playerName = _name;
-        
+        QuizManager.mode = _mode;
     }
 
     [Command]
@@ -49,6 +66,14 @@ public class PlayerQuizData : NetworkBehaviour
         answerTime = QuizManager.current.AnswerTime;
 
         currentChoice = _choice;
+        QuizManager.current.RecivedAnswer();
+    }
+    [Command]
+    public void CmdMakeWriteChoice(string _answer)
+    {
+        answerTime = QuizManager.current.AnswerTime;
+
+        currentChoiceWrite = _answer;
         QuizManager.current.RecivedAnswer();
     }
 
@@ -65,6 +90,21 @@ public class PlayerQuizData : NetworkBehaviour
     }
 
     public void Disconnect()
+    {
+        if (isLeader)
+        {
+            QuizNetworkManager.current.StopHost();
+        }
+        else
+        {
+            QuizNetworkManager.current.StopClient();
+        }
+
+        SceneTransition.OnTransitionExit -= Disconnect;
+    }
+
+    [TargetRpc]
+    public void DisconnectMe(NetworkConnection _target)
     {
         if (isLeader)
         {
@@ -102,23 +142,65 @@ public class PlayerQuizData : NetworkBehaviour
             streak = 0;
         }
     }
+    [Server]
+    public void ValidateScore(List<string> _answers)
+    {
+        bool _correct = false;
+
+        foreach (var _answer in _answers)
+        {
+            if(_answer == currentChoiceWrite)
+            {
+                _correct = true;
+                break;
+            }
+        }
+
+        if (_correct)
+        {
+            int _prevScore = score;
+
+            int _points = QuizManager.quiz.questions[QuizManager.current.currentQuestion].points;
+            score += _points;
+            score += Mathf.RoundToInt(answerTime * _points);
+
+            streak++;
+            if (streak > 2)
+            {
+                score += Mathf.RoundToInt(QuizManager.current.streakBonus * _points * (streak - 2));
+            }
+
+            RpcRecivePoints(score - _prevScore, true);
+        }
+        else
+        {
+            RpcRecivePoints(0, false);
+
+            streak = 0;
+        }
+    }
 
     [ClientRpc]
     public void RpcRecivePoints(int _points,bool _correct)
     {
-        TextMeshProUGUI _text = QuizManager.current.scoreGainText;
+        TextMeshProUGUI _text;
+        if (!hasAuthority) return;
+        if (QuizManager.mode == PlayMode.BigScreen) _text = QuizManager.current.scoreGainText_SCP;
+        else _text = QuizManager.current.scoreGainText;
 
         if (_correct)
         {
+            streak++;
+
             _text.text = _points.ToString();
             _text.color = Color.green;
         }
         else
         {
+            streak = 0;
+
             _text.text = "x";
             _text.color = Color.red;
         }
-
-        _text.gameObject.SetActive(true);
     }
 }
